@@ -20,7 +20,13 @@ Welcome to my engineering portfolio! This folder showcases a selection of my mos
 - Performance, scalability, and maintainability
 - Technical leadership and cross-cultural collaboration
 
-## Outstanding Works
+## Highlighted Projects & Repositories
+
+Discover some of my most impactful open-source projects and professional repositories, showcasing advanced engineering, architectural decisions, and real-world results:
+
+- **[prompts](https://github.com/arthurbortolini95/prompts):** A curated collection of AI prompts for various use cases, helping developers and enthusiasts leverage AI effectively.
+
+## Outstanding Achievements
 
 | Solution                                     | TLDR                                                                                                                                                                                                 | Impact                                                                                                                                                                | Domains                                                         | Technologies                                                                                                 |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
