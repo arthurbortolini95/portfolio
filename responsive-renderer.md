@@ -17,14 +17,15 @@ The application required a highly responsive UI, but implementing localized visi
 - **Code Duplication:** Device viewport logic was scattered across dozens of components, making maintenance difficult.
 - **DOM Bloat:** Traditional CSS-based hiding (`display: none`) keeps components in the DOM, which increased the memory footprint and initial render time for our mobile-heavy user base.
 - **Inflexible Strategies:** Different use cases required different technical approaches—some needed components completely unmounted for performance, while others required persistent state that only CSS hiding could provide.
+- **Performance Overhead from Multiple Listeners:** Without a centralized device type context, each usage of device-detection logic (e.g., in every `ResponsiveRenderer` instance) would add its own window resize event listener. This could lead to dozens of redundant listeners, negatively impacting performance and memory usage, especially in large applications.
 
 ## Solution
 
-I designed and implemented a `ResponsiveRenderer` component that encapsulates device-detection logic and offers two distinct rendering strategies:
+I designed and implemented a `ResponsiveRenderer` component that encapsulates device-detection logic and offers two distinct rendering strategies, while also centralizing device type detection for optimal performance:
 
 1.  **Conditional Rendering (Default):** This strategy utilizes React's lifecycle to completely unmount components that do not match the current `deviceType`. I chose this as the default because users on our platform rarely switch between devices mid-session, and removing hidden elements results in a much lighter DOM.
 2.  **CSS-Based Visibility:** For scenarios where component state must be preserved or where quick viewport transitions are expected, I extended the component to support a `css` strategy. This leverages SCSS media queries to toggle visibility without unmounting the subtree.
-3.  **Context-Driven Detection:** Integrated the component with a custom `useDeviceTypeContext` hook to provide accurate, real-time device categorization (mobile, tablet, desktop) across the monorepo.
+3.  **Context-Driven Detection & Performance:** Integrated the component with a custom `useDeviceTypeContext` hook to provide accurate, real-time device categorization (mobile, tablet, desktop) across the monorepo. This context is powered by a single, centralized hook that manages the window resize event listener. By doing so, we avoid the performance and memory overhead of having multiple listeners attached by each component instance, ensuring that only one listener is ever active regardless of how many times the device type is consumed throughout the app.
 4.  **Flexible API:** Defined a preset of responsive keys (e.g., `mobile-only`, `tablet-and-desktop`) to ensure type safety and consistent breakpoint behavior across teams.
 
 ## Impact
@@ -37,10 +38,49 @@ I designed and implemented a `ResponsiveRenderer` component that encapsulates de
 
 ## Diff
 
+The below snippet demonstrates the core of the centralized device type detection hook, which ensures only one resize listener is ever active:
+
+```typescript
+import { useEffect, useState } from "react";
+import { Breakpoints } from "./constants";
+import { DeviceType } from "./types";
+
+/**
+ * React hook to determine the current device type (mobile, tablet, desktop) based on window width.
+ *
+ * ⚠️ This hook adds a window resize event listener every time it is used. To avoid performance issues,
+ * use this hook only ONCE in your app, typically inside a context provider (e.g., DeviceTypeContextProvider).
+ *
+ * @returns The current device type as 'mobile', 'tablet', or 'desktop'.
+ */
+export function useDeviceType(): DeviceType {
+  const [device, setDevice] = useState<DeviceType>(() => {
+    if (typeof window === "undefined") return "desktop";
+    const width = window.innerWidth;
+    if (width < Breakpoints.md) return "mobile";
+    if (width < Breakpoints.lg) return "tablet";
+    return "desktop";
+  });
+
+  useEffect(() => {
+    function handleResize() {
+      const width = window.innerWidth;
+      if (width < Breakpoints.md) setDevice("mobile");
+      else if (width < Breakpoints.lg) setDevice("tablet");
+      else setDevice("desktop");
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return device;
+}
+```
+
 The component leverages a clean conditional pattern to switch between the DOM-heavy and performance-optimized rendering strategies.
 
 ```typescript
-// packages/react-components/src/components/responsive-renderer/component.tsx
+// responsive-renderer/component.tsx
 
 export const ResponsiveRenderer = ({
   children,
@@ -63,9 +103,9 @@ export const ResponsiveRenderer = ({
 The underlying SCSS ensures that when the `css` strategy is used, breakpoints are applied consistently using monorepo-standard mixins.
 
 ```scss
-// packages/react-components/src/components/responsive-renderer/styles.module.scss
+// responsive-renderer/styles.module.scss
 
-@use "@monorepo/styles/breakpoints";
+@use "@styles/breakpoints";
 
 .responsive-renderer {
   // Strategy for components that should only exist on tablet/desktop viewports
