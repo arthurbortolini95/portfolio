@@ -1,6 +1,6 @@
 # Go API Latency Optimization
 
-> **TLDR**: Used AI to identify bottlenecks and better approach, reducing critical call latency by 87.6% (from ~50s to ~6s).
+> **TLDR**: Leveraged AI to diagnose performance bottlenecks and develop an optimized solution, reducing critical call latency by 87.6% (from ~50s to ~6s).
 
 > **Domain:** Backend | Infrastructure | Cloud Security | AI
 
@@ -21,7 +21,7 @@ After migrating to the v2 Kubernetes network mesh, the application began experie
 
 ## Solution
 
-I used AI to identify the bottlenecks, by adding fine-grained logging and asking insightful questions to find better approaches to the problematic pieces of code. After that, I applied a refactor the core integration logic and concurrency model to move from an "iterative-filtering" approach to a "direct-targeted" approach:
+I leveraged AI to diagnose the bottlenecks by adding fine-grained logging and asking insightful questions to identify better approaches for the problematic code. After that, I refactored the core integration logic and concurrency model to move from an "iterative-filtering" approach to a "direct-targeted" approach:
 
 1. **Targeted API Migration:** Replaced comprehensive group listing with direct membership check endpoints. For Azure, I migrated to the `checkMemberGroups` endpoint; for GCP, I implemented `Members.Get`. This reduced the payload and processing time from to per check.
 2. **Defensive Membership Logic:** Introduced `UserExists` and `IsMemberOfGroup` checks to skip redundant "remove" calls for users who were already revoked or non-existent, eliminating the 48+ second delays caused by waiting for API failure responses.
