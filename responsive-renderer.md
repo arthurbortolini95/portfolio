@@ -16,17 +16,40 @@ The application required a highly responsive UI, but implementing localized visi
 
 - **Code Duplication:** Device viewport logic was scattered across dozens of components, making maintenance difficult.
 - **DOM Bloat:** Traditional CSS-based hiding (`display: none`) keeps components in the DOM, which increased the memory footprint and initial render time for our mobile-heavy user base.
-- **Inflexible Strategies:** Different use cases required different technical approaches—some needed components completely unmounted for performance, while others required persistent state that only CSS hiding could provide.
-- **Performance Overhead from Multiple Listeners:** Without a centralized device type context, each usage of device-detection logic (e.g., in every `ResponsiveRenderer` instance) would add its own window resize event listener. This could lead to dozens of redundant listeners, negatively impacting performance and memory usage, especially in large applications.
+- **Inconsistent Breakpoint Logic:** Without a centralized standard, different teams implemented responsive behavior differently, leading to UX inconsistencies across the platform.
 
 ## Solution
 
-I designed and implemented a `ResponsiveRenderer` component that encapsulates device-detection logic and offers two distinct rendering strategies, while also centralizing device type detection for optimal performance:
+### Initial Implementation
 
-1.  **Conditional Rendering (Default):** This strategy utilizes React's lifecycle to completely unmount components that do not match the current `deviceType`. I chose this as the default because users on our platform rarely switch between devices mid-session, and removing hidden elements results in a much lighter DOM.
-2.  **CSS-Based Visibility:** For scenarios where component state must be preserved or where quick viewport transitions are expected, I extended the component to support a `css` strategy. This leverages SCSS media queries to toggle visibility without unmounting the subtree.
-3.  **Context-Driven Detection & Performance:** Integrated the component with a custom `useDeviceTypeContext` hook to provide accurate, real-time device categorization (mobile, tablet, desktop) across the monorepo. This context is powered by a single, centralized hook that manages the window resize event listener. By doing so, we avoid the performance and memory overhead of having multiple listeners attached by each component instance, ensuring that only one listener is ever active regardless of how many times the device type is consumed throughout the app.
-4.  **Flexible API:** Defined a preset of responsive keys (e.g., `mobile-only`, `tablet-and-desktop`) to ensure type safety and consistent breakpoint behavior across teams.
+I designed and implemented a `ResponsiveRenderer` component to centralize all device-detection logic. The component was a simple wrapper that:
+
+- Received children and rendered them based on window size detected via a `resize` event listener
+- Used **conditional rendering** (not CSS `display: none`) to completely remove elements from the DOM when not needed, improving performance for our mobile-heavy user base who rarely switched devices mid-session
+- Provided a clean, reusable API with type-safe responsive keys (e.g., `mobile-only`, `tablet-and-desktop`)
+
+**Benefits of this approach:**
+
+- Centralized the logic in a single, testable component
+- Eliminated code duplication across dozens of components
+- Improved performance by keeping the DOM tree shallow
+- Enhanced maintainability and consistency across teams
+
+### Problem Discovery
+
+After deploying the initial version, I discovered a critical performance issue: **each `ResponsiveRenderer` instance was creating its own window `resize` event listener**. In pages with dozens of responsive components, this meant dozens of redundant listeners, negatively impacting performance and memory usage—especially problematic for our mobile users.
+
+### Final Solution
+
+To address this, I refactored the architecture using React's "lifting state up" pattern:
+
+1.  **Context-Driven Detection:** Created a custom `useDeviceType` hook that encapsulates the device identification logic, then lifted it into a dedicated React context (`DeviceTypeContext`). This ensures only **one resize listener exists** at the context level, regardless of how many `ResponsiveRenderer` components consume it. We traded some architectural complexity for significant performance gains.
+
+2.  **Conditional Rendering (Default Strategy):** Maintained the original approach of completely unmounting components that don't match the current `deviceType`, keeping the DOM lightweight.
+
+3.  **CSS-Based Visibility (Optional Strategy):** Extended the component to support a `css` rendering strategy for scenarios where component state must be preserved or where quick viewport transitions are expected. This leverages SCSS media queries to toggle visibility without unmounting the subtree.
+
+4.  **Flexible API:** Preserved the type-safe responsive keys to ensure consistent breakpoint behavior across the monorepo.
 
 ## Impact
 
